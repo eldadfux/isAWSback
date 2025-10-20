@@ -44,10 +44,29 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'Imagine App',
+        title: 'Is AWS Back?',
       },
     ],
     links: [
+      // Favicon - default grey circle
+      {
+        rel: 'icon',
+        type: 'image/svg+xml',
+        href: '/favicon.svg',
+      },
+      // Colored favicons for different AWS statuses
+      {
+        rel: 'icon',
+        type: 'image/svg+xml',
+        href: '/favicon-red.svg',
+        media: '(prefers-color-scheme: dark)',
+      },
+      {
+        rel: 'icon',
+        type: 'image/svg+xml',
+        href: '/favicon-green.svg',
+        media: '(prefers-color-scheme: light)',
+      },
       // Critical CSS - loads immediately and synchronously
       {
         rel: 'stylesheet',
