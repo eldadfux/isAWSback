@@ -88,6 +88,15 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           /> */}
         </ThemeProvider>
         <Scripts />
+        
+        {/* Privacy-friendly analytics by Plausible */}
+        <script async src="https://plausible.io/js/pa-ORpcgOYNkAJybVq5iuxvx.js"></script>
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+            plausible.init()
+          `
+        }} />
       </body>
     </html>
   )

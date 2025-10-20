@@ -126,7 +126,7 @@ export function AWSStatusChecker() {
   return (
     <div
       className={cn(
-        'min-h-screen flex flex-col items-center justify-center p-8 transition-colors duration-500',
+        'min-h-screen flex flex-col items-center justify-center p-8 transition-all duration-1000 ease-in-out',
         'bg-gradient-to-br',
         config.bgGradient,
         config.darkBgGradient,
@@ -145,13 +145,14 @@ export function AWSStatusChecker() {
 
           <div
             className={cn(
-              'text-8xl md:text-[12rem] font-black tracking-tight transition-all duration-300',
+              'text-8xl md:text-[12rem] font-black tracking-tight transition-all duration-300 leading-none',
               config.color,
               isLoading && 'animate-pulse',
             )}
             role="status"
             aria-live="polite"
             aria-atomic="true"
+            style={{ minHeight: '1em', lineHeight: '1' }}
           >
             {config.text}
           </div>
@@ -161,9 +162,9 @@ export function AWSStatusChecker() {
           </p>
         </div>
 
-        {/* Details Section */}
-        {statusData && !isLoading && (
-          <div className="w-full max-w-2xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
+        {/* Details Section - Always reserve space */}
+        <div className="w-full max-w-2xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 min-h-[200px]">
+          {statusData && !isLoading ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600 dark:text-gray-400 font-medium">
@@ -197,8 +198,17 @@ export function AWSStatusChecker() {
                 </p>
               </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center space-y-2">
+                <div className="size-4 rounded-full bg-gray-400 dark:bg-gray-600 animate-pulse mx-auto" />
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Loading status details...
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Error Display */}
         {error && (
@@ -210,7 +220,7 @@ export function AWSStatusChecker() {
         )}
 
         {/* Footer */}
-        <footer className="mt-12 text-center text-sm text-gray-600 dark:text-gray-400">
+        <footer className="mt-12 text-center text-sm text-gray-600 dark:text-gray-400 space-y-4">
           <p>
             Monitoring AWS health status •{' '}
             <a
@@ -222,6 +232,23 @@ export function AWSStatusChecker() {
               Official AWS Health Dashboard
             </a>
           </p>
+          
+          {/* Appwrite Attribution */}
+          <div className="flex items-center justify-center gap-2 text-xs mt-6">
+            <span>This service is brought to you courtesy of</span>
+            <a
+              href="https://appwrite.io"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 hover:opacity-80 transition-opacity"
+            >
+              <img
+                src="https://appwrite.io/images/logos/appwrite-light.svg"
+                alt="Appwrite"
+                className="h-4 w-auto"
+              />
+            </a>
+          </div>
         </footer>
       </main>
     </div>
