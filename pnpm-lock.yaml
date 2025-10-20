@@ -143,6 +143,9 @@ importers:
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      nitro-v2-vite-pluginå:
+        specifier: link:@tanstack/nitro-v2-vite-pluginå
+        version: link:@tanstack/nitro-v2-vite-pluginå
       node-appwrite:
         specifier: ^19.1.0
         version: 19.1.0

@@ -18,8 +18,7 @@ const config = defineConfig({
     tanstackStart(),
     forSites &&
       nitroV2Plugin({
-        compatibilityDate: '2025-10-08',
-        preset: 'node',
+        compatibilityDate: '2025-10-08'
       }),
     devtoolsJson(),
     viteReact(),
