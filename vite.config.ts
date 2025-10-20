@@ -23,10 +23,32 @@ const config = defineConfig({
     devtoolsJson(),
     viteReact(),
   ],
+  css: {
+    devSourcemap: true,
+  },
   server: {
     host: '::',
     allowedHosts: true,
-    hmr: true,
+    hmr: {
+      overlay: false,
+      port: 24678,
+    },
+  },
+  build: {
+    cssCodeSplit: true,
+    rollupOptions: {
+      output: {
+        assetFileNames: (assetInfo) => {
+          if (!assetInfo.name) return 'assets/[name]-[hash].[ext]'
+          const info = assetInfo.name.split('.')
+          const ext = info[info.length - 1]
+          if (/\.(css)$/.test(assetInfo.name)) {
+            return `assets/css/[name]-[hash].${ext}`
+          }
+          return `assets/[name]-[hash].${ext}`
+        },
+      },
+    },
   },
 })
 
