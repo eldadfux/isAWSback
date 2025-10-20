@@ -359,8 +359,37 @@ async function fetchAWSHealthStatus(): Promise<AWSHealthResponse> {
 
     console.error(`[AWS Health] Successfully parsed ${events.length} events`)
 
+    // Ensure events is serializable
+    const serializableEvents = events.map(event => ({
+      date: event.date || '',
+      arn: event.arn || '',
+      region_name: event.region_name || '',
+      status: event.status || '',
+      service: event.service || '',
+      service_name: event.service_name || '',
+      summary: event.summary || '',
+      event_log: Array.isArray(event.event_log) ? event.event_log.map(log => ({
+        summary: log.summary || '',
+        message: log.message || '',
+        status: log.status || 0,
+        timestamp: log.timestamp || 0,
+      })) : [],
+      impacted_services: event.impacted_services && typeof event.impacted_services === 'object' 
+        ? Object.fromEntries(
+            Object.entries(event.impacted_services).map(([key, service]) => [
+              key,
+              {
+                service_name: service.service_name || '',
+                current: service.current || '',
+                max: service.max || '',
+              }
+            ])
+          )
+        : {},
+    }))
+
     // If no events, AWS is operational
-    if (events.length === 0) {
+    if (serializableEvents.length === 0) {
       return {
         status: 'yes',
         lastUpdated: new Date().toISOString(),
@@ -371,7 +400,7 @@ async function fetchAWSHealthStatus(): Promise<AWSHealthResponse> {
     // Count impacted services from all events
     const impactedServicesSet = new Set<string>()
 
-    events.forEach((event) => {
+    serializableEvents.forEach((event) => {
       // Validate event structure
       if (!event || typeof event !== 'object') {
         console.error('[AWS Health] Invalid event object:', event)
@@ -457,35 +486,59 @@ async function fetchAWSHealthStatus(): Promise<AWSHealthResponse> {
  */
 export const getAWSHealthStatusFn = createServerFn({ method: 'GET' }).handler(
   async () => {
-    console.log('[AWS Health] Server function called')
-    const now = Date.now()
-
-    // Return cached status if still valid
-    if (cachedStatus && now - cachedStatus.timestamp < CACHE_DURATION) {
-      console.log('[AWS Health] Returning cached status')
-      return {
-        status: cachedStatus.status,
-        lastUpdated: cachedStatus.lastUpdated,
-        details: cachedStatus.details,
-      }
-    }
-
-    console.log('[AWS Health] Fetching fresh status...')
     try {
+      console.log('[AWS Health] Server function called')
+      const now = Date.now()
+
+      // Return cached status if still valid
+      if (cachedStatus && now - cachedStatus.timestamp < CACHE_DURATION) {
+        console.log('[AWS Health] Returning cached status')
+        return {
+          status: cachedStatus.status,
+          lastUpdated: cachedStatus.lastUpdated,
+          details: cachedStatus.details,
+        }
+      }
+
+      console.log('[AWS Health] Fetching fresh status...')
+      
       // Fetch fresh status
       const healthStatus = await fetchAWSHealthStatus()
 
-      // Update cache
+      // Update cache with serializable data only
       cachedStatus = {
-        ...healthStatus,
+        status: healthStatus.status,
+        lastUpdated: healthStatus.lastUpdated,
+        details: healthStatus.details,
         timestamp: now,
       }
 
       console.log('[AWS Health] Successfully fetched status:', healthStatus.status)
-      return healthStatus
+      
+      // Return only serializable data
+      return {
+        status: healthStatus.status,
+        lastUpdated: healthStatus.lastUpdated,
+        details: healthStatus.details,
+      }
     } catch (error) {
       console.error('[AWS Health] Error in server function:', error)
-      throw error
+      
+      // Return cached status if available, otherwise unknown
+      if (cachedStatus) {
+        console.error('[AWS Health] Returning cached status due to error')
+        return {
+          status: cachedStatus.status,
+          lastUpdated: cachedStatus.lastUpdated,
+          details: cachedStatus.details,
+        }
+      }
+
+      return {
+        status: 'unknown',
+        lastUpdated: new Date().toISOString(),
+        details: `Unable to fetch AWS health status: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      }
     }
   },
 )

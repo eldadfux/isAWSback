@@ -46,6 +46,61 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
       {
         title: 'Is AWS Back?',
       },
+      // Open Graph meta tags
+      {
+        property: 'og:title',
+        content: 'Is AWS Back? - ❓ Status Unknown',
+      },
+      {
+        property: 'og:description',
+        content: 'Monitor AWS service health status in real-time. Get instant notifications about AWS outages and service disruptions.',
+      },
+      {
+        property: 'og:image',
+        content: '/og-image.png',
+      },
+      {
+        property: 'og:image:width',
+        content: '1200',
+      },
+      {
+        property: 'og:image:height',
+        content: '630',
+      },
+      {
+        property: 'og:type',
+        content: 'website',
+      },
+      {
+        property: 'og:url',
+        content: 'https://isawsback.com',
+      },
+      // Twitter Card meta tags
+      {
+        name: 'twitter:card',
+        content: 'summary_large_image',
+      },
+      {
+        name: 'twitter:title',
+        content: 'Is AWS Back? - ❓ Status Unknown',
+      },
+      {
+        name: 'twitter:description',
+        content: 'Monitor AWS service health status in real-time. Get instant notifications about AWS outages and service disruptions.',
+      },
+      {
+        name: 'twitter:image',
+        content: '/og-image.png',
+      },
+      // Additional meta tags
+      {
+        name: 'description',
+        content: 'Monitor AWS service health status in real-time. Get instant notifications about AWS outages and service disruptions.',
+      },
+      {
+        name: 'keywords',
+        content: 'AWS, Amazon Web Services, health status, monitoring, outage, downtime, real-time',
+      },
     ],
     links: [
       // Favicon - default grey circle

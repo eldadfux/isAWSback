@@ -1,8 +1,11 @@
 import { useEffect, useState, useRef } from 'react'
 import { useServerFn } from '@tanstack/react-start'
 import { getAWSHealthStatusFn } from '@/server/functions/aws-health'
+import { getAWSHealthStatusSimpleFn } from '@/server/functions/aws-health-simple'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
+import { DynamicFavicon } from './dynamic-favicon'
+import { DynamicOGImage } from './dynamic-og-image'
 
 interface StatusData {
   status: 'yes' | 'no' | 'unknown'
@@ -22,6 +25,7 @@ export function AWSStatusChecker() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const getStatus = useServerFn(getAWSHealthStatusFn)
+  const getStatusSimple = useServerFn(getAWSHealthStatusSimpleFn)
 
   const fetchStatus = async () => {
     // Prevent multiple simultaneous requests
@@ -34,10 +38,20 @@ export function AWSStatusChecker() {
 
     try {
       setError(null)
-      const data = await getStatus()
-      setStatusData(data)
+      let data
+      try {
+        // Try the main function first
+        data = await getStatus()
+      } catch (mainError) {
+        console.error('[AWS Status] Main function failed, trying simple fallback:', mainError)
+        // Fallback to simple function
+        data = await getStatusSimple()
+      }
+      
+      setStatusData(data as StatusData)
       setIsLoading(false)
     } catch (err) {
+      console.error('[AWS Status] Both functions failed:', err)
       setError('Unable to check AWS status')
       setIsLoading(false)
 
@@ -124,14 +138,17 @@ export function AWSStatusChecker() {
   }
 
   return (
-    <div
-      className={cn(
-        'min-h-screen flex flex-col items-center justify-center p-8 transition-all duration-1000 ease-in-out',
-        'bg-gradient-to-br',
-        config.bgGradient,
-        config.darkBgGradient,
-      )}
-    >
+    <>
+      <DynamicFavicon status={statusData?.status || 'unknown'} />
+      <DynamicOGImage status={statusData?.status || 'unknown'} />
+      <div
+        className={cn(
+          'min-h-screen flex flex-col items-center justify-center p-8 transition-all duration-1000 ease-in-out',
+          'bg-gradient-to-br',
+          config.bgGradient,
+          config.darkBgGradient,
+        )}
+      >
       <main
         className="flex flex-col items-center justify-center gap-8 max-w-4xl w-full"
         role="main"
@@ -252,5 +269,6 @@ export function AWSStatusChecker() {
         </footer>
       </main>
     </div>
+    </>
   )
 }
