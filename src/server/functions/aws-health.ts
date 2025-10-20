@@ -72,33 +72,39 @@ function stripBOM(text: string): string {
 
 /**
  * Sanitizes and validates JSON text before parsing
- * Handles UTF-16LE encoding issues from AWS Health API
+ * Handles UTF-16 encoding issues from AWS Health API
  */
 function sanitizeJSONText(rawText: string): string {
   // Strip BOM
   let cleanText = stripBOM(rawText)
 
-  // Check if this looks like UTF-16LE data being read as UTF-8
-  // Indicators: starts with replacement character (0xfffd) or has null bytes between characters
+  // Check for various encoding issues
   const hasReplacementChar = cleanText.length > 0 && cleanText.charCodeAt(0) === 0xfffd
   const hasNullBytes = cleanText.includes('\u0000')
   const hasPatternOfNullBytes = cleanText.length > 10 && 
     cleanText.split('').filter((_, i) => i % 2 === 1 && cleanText.charCodeAt(i) === 0).length > cleanText.length * 0.3
   
-  if (hasReplacementChar || (hasNullBytes && hasPatternOfNullBytes)) {
-    console.error('[AWS Health] Detected UTF-16LE encoding issue, converting...')
+  // Check for UTF-16BE issues (every other character is null)
+  const hasUTF16BEPattern = cleanText.length > 10 && 
+    cleanText.split('').filter((_, i) => i % 2 === 0 && cleanText.charCodeAt(i) === 0).length > cleanText.length * 0.3
+  
+  if (hasReplacementChar || (hasNullBytes && hasPatternOfNullBytes) || hasUTF16BEPattern) {
+    console.error('[AWS Health] Detected UTF-16 encoding issue, cleaning...')
     
-    // Convert UTF-16LE to UTF-8 by removing null bytes between characters
-    // This handles the case where UTF-16LE is being read as UTF-8
+    // Remove null bytes (common in UTF-16 misreadings)
     cleanText = cleanText.replace(/\u0000/g, '')
     
-    // Remove Unicode replacement characters that appear at the beginning
-    cleanText = cleanText.replace(/^\uFFFD+/g, '')
+    // Remove Unicode replacement characters
+    cleanText = cleanText.replace(/\uFFFD/g, '')
     
-    console.error('[AWS Health] After UTF-16LE conversion, length:', cleanText.length)
+    // Remove any other control characters that might interfere
+    cleanText = cleanText.replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+    
+    console.error('[AWS Health] After UTF-16 cleanup, length:', cleanText.length)
   } else {
-    // Remove any stray null bytes
+    // Remove any stray null bytes and control characters
     cleanText = cleanText.replace(/\0/g, '')
+    cleanText = cleanText.replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
   }
   
   // Remove any remaining Unicode replacement characters that might interfere with JSON parsing
@@ -154,62 +160,102 @@ async function fetchAWSHealthStatus(): Promise<AWSHealthResponse> {
     }
 
     // Get the raw text first for validation and debugging
-    // Handle gzip decompression and encoding properly
+    // Handle UTF-16 encoding properly based on content-type
     let rawText: string
+    
+    // Check content-type to determine encoding
+    const isUTF16 = contentType?.includes('utf-16') || false
+    
+    console.error('[AWS Health] Content-Type:', contentType)
+    console.error('[AWS Health] Detected UTF-16:', isUTF16)
+    
     try {
       // Get as arrayBuffer first to handle encoding properly
       const arrayBuffer = await response.arrayBuffer()
       
-      // Try UTF-8 first (most common)
-      try {
-        const decoder = new TextDecoder('utf-8')
-        rawText = decoder.decode(arrayBuffer)
-        
-        // Check if the result looks like UTF-16 data (has replacement chars or null bytes)
-        if (rawText.includes('\uFFFD') || rawText.includes('\u0000')) {
-          console.error('[AWS Health] UTF-8 decode produced invalid characters, trying UTF-16 variants')
-          
-          // Check for BOM to determine endianness
-          const firstTwoBytes = new Uint8Array(arrayBuffer.slice(0, 2))
-          const bom = (firstTwoBytes[0] << 8) | firstTwoBytes[1]
-          
-          if (bom === 0xFFFE) {
-            // UTF-16LE BOM
-            console.error('[AWS Health] Detected UTF-16LE BOM, using UTF-16LE decoder')
-            const utf16Decoder = new TextDecoder('utf-16le')
-            rawText = utf16Decoder.decode(arrayBuffer)
-          } else if (bom === 0xFEFF) {
-            // UTF-16BE BOM
-            console.error('[AWS Health] Detected UTF-16BE BOM, using UTF-16BE decoder')
-            const utf16Decoder = new TextDecoder('utf-16be')
-            rawText = utf16Decoder.decode(arrayBuffer)
-          } else {
-            // No BOM, try UTF-16LE first (more common)
-            console.error('[AWS Health] No BOM detected, trying UTF-16LE')
-            const utf16Decoder = new TextDecoder('utf-16le')
-            rawText = utf16Decoder.decode(arrayBuffer)
-            
-            // If UTF-16LE produces garbled text, try UTF-16BE
-            if (rawText.includes('\uFFFD') || rawText.length < 10) {
-              console.error('[AWS Health] UTF-16LE produced garbled text, trying UTF-16BE')
-              const utf16BEDecoder = new TextDecoder('utf-16be')
-              rawText = utf16BEDecoder.decode(arrayBuffer)
-            }
-          }
-        }
-      } catch (utf8Error) {
-        // If UTF-8 fails, try UTF-16 variants
-        console.error('[AWS Health] UTF-8 decode failed, trying UTF-16 variants:', utf8Error)
+      if (isUTF16) {
+        // Content-Type indicates UTF-16, try both variants
+        console.error('[AWS Health] Content-Type indicates UTF-16, trying UTF-16LE first')
         
         try {
-          const decoder = new TextDecoder('utf-16le')
+          const utf16Decoder = new TextDecoder('utf-16le')
+          rawText = utf16Decoder.decode(arrayBuffer)
+          
+          // Check if UTF-16LE produced valid JSON
+          if (!rawText.trim().startsWith('[') && !rawText.trim().startsWith('{')) {
+            console.error('[AWS Health] UTF-16LE did not produce valid JSON, trying UTF-16BE')
+            const utf16BEDecoder = new TextDecoder('utf-16be')
+            rawText = utf16BEDecoder.decode(arrayBuffer)
+          }
+        } catch (utf16Error) {
+          console.error('[AWS Health] UTF-16LE failed, trying UTF-16BE:', utf16Error)
+          const utf16BEDecoder = new TextDecoder('utf-16be')
+          rawText = utf16BEDecoder.decode(arrayBuffer)
+        }
+      } else {
+        // Try UTF-8 first (most common)
+        try {
+          const decoder = new TextDecoder('utf-8')
           rawText = decoder.decode(arrayBuffer)
-        } catch (utf16LEError) {
-          console.error('[AWS Health] UTF-16LE failed, trying UTF-16BE:', utf16LEError)
-          const decoder = new TextDecoder('utf-16be')
-          rawText = decoder.decode(arrayBuffer)
+          
+          // Check if the result looks like UTF-16 data (has replacement chars or null bytes)
+          if (rawText.includes('\uFFFD') || rawText.includes('\u0000')) {
+            console.error('[AWS Health] UTF-8 decode produced invalid characters, trying UTF-16 variants')
+            
+            // Check for BOM to determine endianness
+            const firstTwoBytes = new Uint8Array(arrayBuffer.slice(0, 2))
+            const bom = (firstTwoBytes[0] << 8) | firstTwoBytes[1]
+            
+            if (bom === 0xFFFE) {
+              // UTF-16LE BOM
+              console.error('[AWS Health] Detected UTF-16LE BOM, using UTF-16LE decoder')
+              const utf16Decoder = new TextDecoder('utf-16le')
+              rawText = utf16Decoder.decode(arrayBuffer)
+            } else if (bom === 0xFEFF) {
+              // UTF-16BE BOM
+              console.error('[AWS Health] Detected UTF-16BE BOM, using UTF-16BE decoder')
+              const utf16Decoder = new TextDecoder('utf-16be')
+              rawText = utf16Decoder.decode(arrayBuffer)
+            } else {
+              // No BOM, try UTF-16LE first (more common)
+              console.error('[AWS Health] No BOM detected, trying UTF-16LE')
+              const utf16Decoder = new TextDecoder('utf-16le')
+              rawText = utf16Decoder.decode(arrayBuffer)
+              
+              // If UTF-16LE produces garbled text, try UTF-16BE
+              if (rawText.includes('\uFFFD') || rawText.length < 10) {
+                console.error('[AWS Health] UTF-16LE produced garbled text, trying UTF-16BE')
+                const utf16BEDecoder = new TextDecoder('utf-16be')
+                rawText = utf16BEDecoder.decode(arrayBuffer)
+              }
+            }
+          }
+        } catch (utf8Error) {
+          // If UTF-8 fails, try UTF-16 variants
+          console.error('[AWS Health] UTF-8 decode failed, trying UTF-16 variants:', utf8Error)
+          
+          try {
+            const decoder = new TextDecoder('utf-16le')
+            rawText = decoder.decode(arrayBuffer)
+          } catch (utf16LEError) {
+            console.error('[AWS Health] UTF-16LE failed, trying UTF-16BE:', utf16LEError)
+            const decoder = new TextDecoder('utf-16be')
+            rawText = decoder.decode(arrayBuffer)
+          }
         }
       }
+      
+      // Additional validation: check if the decoded text looks like JSON
+      if (!rawText.trim().startsWith('[') && !rawText.trim().startsWith('{')) {
+        console.error('[AWS Health] Decoded text does not look like JSON, trying alternative approach')
+        // Try to find the actual JSON start
+        const jsonStart = rawText.search(/[\[\{]/)
+        if (jsonStart > 0) {
+          rawText = rawText.substring(jsonStart)
+          console.error('[AWS Health] Trimmed to JSON start at position:', jsonStart)
+        }
+      }
+      
     } catch (arrayBufferError) {
       // Fallback to text() method
       console.error('[AWS Health] ArrayBuffer approach failed, trying text():', arrayBufferError)
@@ -269,9 +315,35 @@ async function fetchAWSHealthStatus(): Promise<AWSHealthResponse> {
             `[AWS Health] Character found at position ${pos}, context: ${cleanText.substring(Math.max(0, pos - 20), pos + 20)}`,
           )
         }
+        
+        // Try to fix the problematic character
+        console.error('[AWS Health] Attempting to fix problematic character...')
+        const fixedText = cleanText.replace(new RegExp(badChar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '')
+        
+        try {
+          events = JSON.parse(fixedText)
+          console.error('[AWS Health] Successfully parsed after removing problematic character')
+        } catch (secondError) {
+          console.error('[AWS Health] Second parse attempt failed:', secondError)
+          
+          // Final fallback: try to extract just the JSON array
+          console.error('[AWS Health] Attempting final fallback - extracting JSON array...')
+          const arrayMatch = cleanText.match(/\[[\s\S]*\]/)
+          if (arrayMatch) {
+            try {
+              events = JSON.parse(arrayMatch[0])
+              console.error('[AWS Health] Successfully parsed extracted JSON array')
+            } catch (extractError) {
+              console.error('[AWS Health] Final fallback failed:', extractError)
+              throw new Error(`Failed to parse JSON: ${errorMsg}`)
+            }
+          } else {
+            throw new Error(`Failed to parse JSON: ${errorMsg}`)
+          }
+        }
+      } else {
+        throw new Error(`Failed to parse JSON: ${errorMsg}`)
       }
-
-      throw new Error(`Failed to parse JSON: ${errorMsg}`)
     }
 
     // Validate the response is an array
@@ -385,10 +457,12 @@ async function fetchAWSHealthStatus(): Promise<AWSHealthResponse> {
  */
 export const getAWSHealthStatusFn = createServerFn({ method: 'GET' }).handler(
   async () => {
+    console.log('[AWS Health] Server function called')
     const now = Date.now()
 
     // Return cached status if still valid
     if (cachedStatus && now - cachedStatus.timestamp < CACHE_DURATION) {
+      console.log('[AWS Health] Returning cached status')
       return {
         status: cachedStatus.status,
         lastUpdated: cachedStatus.lastUpdated,
@@ -396,15 +470,22 @@ export const getAWSHealthStatusFn = createServerFn({ method: 'GET' }).handler(
       }
     }
 
-    // Fetch fresh status
-    const healthStatus = await fetchAWSHealthStatus()
+    console.log('[AWS Health] Fetching fresh status...')
+    try {
+      // Fetch fresh status
+      const healthStatus = await fetchAWSHealthStatus()
 
-    // Update cache
-    cachedStatus = {
-      ...healthStatus,
-      timestamp: now,
+      // Update cache
+      cachedStatus = {
+        ...healthStatus,
+        timestamp: now,
+      }
+
+      console.log('[AWS Health] Successfully fetched status:', healthStatus.status)
+      return healthStatus
+    } catch (error) {
+      console.error('[AWS Health] Error in server function:', error)
+      throw error
     }
-
-    return healthStatus
   },
 )

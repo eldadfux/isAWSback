@@ -73,7 +73,7 @@ export function AWSStatusChecker() {
   const getStatusConfig = () => {
     if (isLoading || !statusData) {
       return {
-        text: 'CHECKING...',
+        text: 'CHECKING',
         color: 'text-gray-500',
         bgGradient: 'from-gray-100 to-gray-200',
         darkBgGradient: 'dark:from-gray-800 dark:to-gray-900',

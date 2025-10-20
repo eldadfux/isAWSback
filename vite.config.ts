@@ -26,6 +26,9 @@ const config = defineConfig({
   css: {
     devSourcemap: true,
   },
+  optimizeDeps: {
+    include: ['react', 'react-dom'],
+  },
   server: {
     host: '::',
     allowedHosts: true,
