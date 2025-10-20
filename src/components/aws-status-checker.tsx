@@ -145,7 +145,7 @@ export function AWSStatusChecker() {
 
           <div
             className={cn(
-              'text-8xl md:text-[12rem] font-black tracking-tight transition-all duration-300 leading-none',
+              'text-8xl md:text-[12rem] font-black tracking-tight transition-all duration-700 ease-in-out leading-none',
               config.color,
               isLoading && 'animate-pulse',
             )}
@@ -157,13 +157,13 @@ export function AWSStatusChecker() {
             {config.text}
           </div>
 
-          <p className="text-xl md:text-2xl text-gray-700 dark:text-gray-300 font-medium">
+          <p className="text-xl md:text-2xl text-gray-700 dark:text-gray-300 font-medium transition-colors duration-700 ease-in-out">
             {config.message}
           </p>
         </div>
 
         {/* Details Section - Always reserve space */}
-        <div className="w-full max-w-2xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 min-h-[200px]">
+        <div className="w-full max-w-2xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 min-h-[200px] transition-all duration-700 ease-in-out">
           {statusData && !isLoading ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between text-sm">
