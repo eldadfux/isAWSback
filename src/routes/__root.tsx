@@ -103,6 +103,12 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
       },
     ],
     links: [
+      // Preload CSS for faster loading
+      {
+        rel: 'preload',
+        href: appCss,
+        as: 'style',
+      },
       // Favicon - default grey circle
       {
         rel: 'icon',
@@ -142,14 +148,89 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         {/* Critical CSS inline to prevent FOUC */}
         <style dangerouslySetInnerHTML={{
           __html: `
-            body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-            :root { --background: oklch(1 0 0); --foreground: oklch(0.141 0.005 285.823); }
-            body { background-color: var(--background); color: var(--foreground); }
-            * { box-sizing: border-box; }
+            /* Reset and base styles */
+            *, *::before, *::after { box-sizing: border-box; }
+            body { 
+              margin: 0; 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; 
+              -webkit-font-smoothing: antialiased; 
+              -moz-osx-font-smoothing: grayscale;
+              line-height: 1.5;
+            }
+            
+            /* CSS Variables */
+            :root { 
+              --background: oklch(1 0 0); 
+              --foreground: oklch(0.141 0.005 285.823);
+              --border: oklch(0.886 0.005 285.823);
+              --input: oklch(0.886 0.005 285.823);
+              --ring: oklch(0.141 0.005 285.823);
+              --primary: oklch(0.141 0.005 285.823);
+              --primary-foreground: oklch(1 0 0);
+              --secondary: oklch(0.886 0.005 285.823);
+              --secondary-foreground: oklch(0.141 0.005 285.823);
+              --muted: oklch(0.886 0.005 285.823);
+              --muted-foreground: oklch(0.455 0.005 285.823);
+              --accent: oklch(0.886 0.005 285.823);
+              --accent-foreground: oklch(0.141 0.005 285.823);
+              --destructive: oklch(0.628 0.258 29.234);
+              --destructive-foreground: oklch(1 0 0);
+              --card: oklch(1 0 0);
+              --card-foreground: oklch(0.141 0.005 285.823);
+              --popover: oklch(1 0 0);
+              --popover-foreground: oklch(0.141 0.005 285.823);
+              --radius: 0.5rem;
+            }
+            
+            /* Dark mode variables */
+            .dark {
+              --background: oklch(0.141 0.005 285.823);
+              --foreground: oklch(0.886 0.005 285.823);
+              --border: oklch(0.455 0.005 285.823);
+              --input: oklch(0.455 0.005 285.823);
+              --ring: oklch(0.886 0.005 285.823);
+              --primary: oklch(0.886 0.005 285.823);
+              --primary-foreground: oklch(0.141 0.005 285.823);
+              --secondary: oklch(0.455 0.005 285.823);
+              --secondary-foreground: oklch(0.886 0.005 285.823);
+              --muted: oklch(0.455 0.005 285.823);
+              --muted-foreground: oklch(0.628 0.005 285.823);
+              --accent: oklch(0.455 0.005 285.823);
+              --accent-foreground: oklch(0.886 0.005 285.823);
+              --destructive: oklch(0.628 0.258 29.234);
+              --destructive-foreground: oklch(1 0 0);
+              --card: oklch(0.141 0.005 285.823);
+              --card-foreground: oklch(0.886 0.005 285.823);
+              --popover: oklch(0.141 0.005 285.823);
+              --popover-foreground: oklch(0.886 0.005 285.823);
+            }
+            
+            /* Base body styles */
+            body { 
+              background-color: var(--background); 
+              color: var(--foreground);
+              transition: background-color 0.2s ease, color 0.2s ease;
+            }
+            
+            /* Prevent layout shift */
+            html { height: 100%; }
+            body { min-height: 100vh; }
+            
+            /* Hide content until styles load */
+            .loading { opacity: 0; }
+            .loaded { opacity: 1; transition: opacity 0.1s ease-in; }
           `
         }} />
       </head>
       <body>
+        {/* Ensure immediate visibility */}
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            // Remove loading class immediately
+            document.documentElement.classList.remove('loading');
+            document.documentElement.classList.add('loaded');
+          `
+        }} />
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

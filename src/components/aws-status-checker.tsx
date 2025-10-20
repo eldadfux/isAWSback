@@ -16,8 +16,11 @@ interface StatusData {
 const REFRESH_INTERVAL = 30000 // 30 seconds
 
 export function AWSStatusChecker() {
-  const [statusData, setStatusData] = useState<StatusData | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [statusData, setStatusData] = useState<StatusData>({
+    status: 'unknown',
+    lastUpdated: new Date().toISOString(),
+    details: 'Checking AWS status...',
+  })
   const [error, setError] = useState<string | null>(null)
   const [isFetching, setIsFetching] = useState(false)
 
@@ -49,11 +52,9 @@ export function AWSStatusChecker() {
       }
       
       setStatusData(data as StatusData)
-      setIsLoading(false)
     } catch (err) {
       console.error('[AWS Status] Both functions failed:', err)
       setError('Unable to check AWS status')
-      setIsLoading(false)
 
       // Set status to unknown on error
       setStatusData({
@@ -85,20 +86,20 @@ export function AWSStatusChecker() {
   }, [])
 
   const getStatusConfig = () => {
-    if (isLoading || !statusData) {
+    if (!statusData) {
       return {
-        text: 'CHECKING',
+        text: '❓',
         color: 'text-gray-500',
         bgGradient: 'from-gray-100 to-gray-200',
         darkBgGradient: 'dark:from-gray-800 dark:to-gray-900',
-        message: 'Fetching AWS health status...',
+        message: 'Status Unknown',
       }
     }
 
     switch (statusData.status) {
       case 'yes':
         return {
-          text: 'YES',
+          text: '✅',
           color: 'text-green-600 dark:text-green-400',
           bgGradient: 'from-green-50 to-emerald-50',
           darkBgGradient: 'dark:from-green-950 dark:to-emerald-950',
@@ -106,7 +107,7 @@ export function AWSStatusChecker() {
         }
       case 'no':
         return {
-          text: 'NO',
+          text: '❌',
           color: 'text-red-600 dark:text-red-400',
           bgGradient: 'from-red-50 to-rose-50',
           darkBgGradient: 'dark:from-red-950 dark:to-rose-950',
@@ -115,10 +116,10 @@ export function AWSStatusChecker() {
       case 'unknown':
       default:
         return {
-          text: 'UNKNOWN',
+          text: '❓',
           color: 'text-gray-600 dark:text-gray-400',
-          bgGradient: 'from-gray-100 to-slate-100',
-          darkBgGradient: 'dark:from-gray-800 dark:to-slate-900',
+          bgGradient: 'from-gray-50 to-slate-50',
+          darkBgGradient: 'dark:from-gray-900 dark:to-slate-900',
           message: 'Unable to determine AWS status',
         }
     }
@@ -164,7 +165,6 @@ export function AWSStatusChecker() {
             className={cn(
               'text-8xl md:text-[12rem] font-black tracking-tight transition-all duration-700 ease-in-out leading-none',
               config.color,
-              isLoading && 'animate-pulse',
             )}
             role="status"
             aria-live="polite"
@@ -181,25 +181,31 @@ export function AWSStatusChecker() {
 
         {/* Details Section - Always reserve space */}
         <div className="w-full max-w-2xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 min-h-[200px] transition-all duration-700 ease-in-out">
-          {statusData && !isLoading ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400 font-medium">
-                  Last Updated
-                </span>
-                <div className="flex items-center gap-2">
-                  {isFetching && (
-                    <div className="size-2 rounded-full bg-blue-500 animate-pulse" />
-                  )}
-                  <time
-                    className="text-gray-900 dark:text-gray-100 font-semibold"
-                    dateTime={statusData.lastUpdated}
-                  >
-                    {getTimeAgo()}
-                  </time>
-                </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600 dark:text-gray-400 font-medium">
+                Last Updated
+              </span>
+              <div className="flex items-center gap-2">
+                {isFetching && (
+                  <div className="size-2 rounded-full bg-blue-500 animate-pulse" />
+                )}
+                <time
+                  className="text-gray-900 dark:text-gray-100 font-semibold"
+                  dateTime={statusData?.lastUpdated || ''}
+                >
+                  {getTimeAgo()}
+                </time>
               </div>
+            </div>
 
+            {error && (
+              <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <p className="text-red-800 dark:text-red-200 text-sm">{error}</p>
+              </div>
+            )}
+
+            {statusData?.details && statusData.details !== 'Checking AWS status...' && (
               <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                 <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-2">
                   Details
@@ -208,33 +214,15 @@ export function AWSStatusChecker() {
                   {statusData.details}
                 </p>
               </div>
+            )}
 
-              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                <p className="text-xs text-gray-500 dark:text-gray-500 text-center">
-                  Auto-refreshing every 30 seconds
-                </p>
-              </div>
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-xs text-gray-500 dark:text-gray-500 text-center">
+                Auto-refreshing every 30 seconds
+              </p>
             </div>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center space-y-2">
-                <div className="size-4 rounded-full bg-gray-400 dark:bg-gray-600 animate-pulse mx-auto" />
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Loading status details...
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Error Display */}
-        {error && (
-          <div className="w-full max-w-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl p-4">
-            <p className="text-red-800 dark:text-red-200 text-center">
-              {error}
-            </p>
           </div>
-        )}
+        </div>
 
         {/* Footer */}
         <footer className="mt-12 text-center text-sm text-gray-600 dark:text-gray-400 space-y-4">
